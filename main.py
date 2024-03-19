@@ -21,7 +21,7 @@ def start(message:types.Message):
 
 @bot.message_handler(commands=['help'])
 def help(message:types.Message):
-    bot.send_message(message.chat.id,'<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<em>///- in Progress</em>',parse_mode='html')
+    bot.send_message(message.chat.id,'<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<b> - /serverstats</b> show server statistics.\n<b> - /pin</b> pin message.\n<b> - /unpin</b> unpin message.\n<b> - /unpinall</b> unpin all pinned messages.\n<em>///- in Progress</em>',parse_mode='html')
 
 @bot.message_handler(commands=['ban'])
 def ban(message:types.Message):
@@ -46,9 +46,7 @@ def unmute(message:types.Message):
 @bot.message_handler(commands=['serverstats'])
 def serverstats(message:types.Message):
     memberscount = bot.get_chat_members_count(message.chat.id)
-    chatadmins = []
-    chatadmins.append(bot.get_chat_administrators(message.chat.id))
-    bot.send_message(message.chat.id, text=f'Stats:\nThere is {memberscount} members on the server at the moment.\n Administrators:{chatadmins}.')
+    bot.send_message(message.chat.id, text=f"Stats:\nThere is {memberscount} members on the server at the moment.\n Administrators:\n{'\n'.join('@'+admin.user.username for admin in bot.get_chat_administrators(message.chat.id))}.")
     
 @bot.message_handler(commands=['pin'])
 def pin(message:types.Message):
@@ -81,6 +79,6 @@ def unpinall(message:types.Message):
 @bot.callback_query_handler(func = lambda callback: True)
 def helpcallback(callback):
     if callback.data == 'help':
-        bot.send_message(callback.message.chat.id, text = '<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<em>///- in Progress</em>',parse_mode='html')
+        bot.send_message(callback.message.chat.id, text = '<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<b> - /serverstats</b> show server statistics.<b> - /pin</b> pin message.<b> - /unpin</b> unpin message.<b> - /unpinall</b> unpin all pinned messages.<em>///- in Progress</em>',parse_mode='html')
 
 bot.polling(none_stop=True)
