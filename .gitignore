@@ -1,0 +1,9 @@
+*.log
+/venv
+/.env
+*.json
+/__pycache__
+*.cfg
+Lib/
+Scripts/
+Include/
