@@ -8,3 +8,4 @@ Lib/
 Scripts/
 Include/
 *.txt
+*.sql
