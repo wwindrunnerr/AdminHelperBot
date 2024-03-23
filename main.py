@@ -57,7 +57,7 @@ def user_password(message):
     bot.send_message(message.chat.id, 'User were sighed up!', reply_markup=markup)
 
 @bot.callback_query_handler(func = lambda callback: True)
-def callback(callback):
+def callback(callback:types.CallbackQuery):
 
     connection = sqlite3.connect('database.sql')
     cursor = connection.cursor()
@@ -72,34 +72,46 @@ def callback(callback):
 
     try:
         match callback.data:
-            case 'userlist':               
-                bot.send_message(callback.message.chat.id, text = info)
+            case 'userlist':  
+                if not info:
+                    bot.answer_callback_query(callback.id, text = "Processing")
+                    bot.send_message(callback.message.chat.id, text = "List is empty.")
+                else:
+                    bot.answer_callback_query(callback.id, text = "Processing")
+                    bot.send_message(callback.message.chat.id, text = info)
+                    
+                
             
             case 'clearlist':
                   
-                #connection = sqlite3.connect('database.sql')
-                #cursor = connection.cursor()
-
-                #cursor.execute("ALTER TABLE users DROP COLUMN name")
-                #cursor.execute("ALTER TABLE users DROP COLUMN password")
-                #connection.commit()
-                #cursor.close()
-                #connection.close()
+                bot.answer_callback_query(callback.id, text = "Processing")  
+                connection = sqlite3.connect('database.sql')
+                cursor = connection.cursor()
+                
+                cursor.execute("UPDATE users SET name = NULL")
+                cursor.execute("UPDATE users SET password = NULL")
+                cursor.execute("DELETE FROM users WHERE name IS NULL AND password IS NULL")
+                connection.commit()
+                cursor.close()
+                connection.close()
 
                 bot.send_message(callback.message.chat.id, text='User List was cleared.')
+                
 
             case 'privacy':
+                bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text = 'Privacy Template.', parse_mode='html')
-
+                
             case 'help':
+                bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text = '<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<b> - /serverstats</b> show server statistics.\n<b> - /pin</b> pin message.\n<b> - /unpin</b> unpin message.\n<b> - /unpinall</b> unpin all pinned messages.\n<em>///- in Progress</em>',parse_mode='html')
-            
+                
             case _:
+                bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text="Unexpected Error.")
-    
+                
     except AttributeError:
         bot.send_message(callback.message.chat.id, text = f'Please select a message first.')
-
 
 #COMMANDS
 
@@ -111,11 +123,14 @@ def help(message:types.Message):
 def rban(message:types.Message):
     try:
         reason = str(message.text[6:])
+        if ('admchathelper_bot') in reason:
+            reason =str(message.text[23:])
         bot.ban_chat_member(message.chat.id, user_id = message.reply_to_message.from_user.id, revoke_messages = True)
         bot.send_message(message.chat.id, text = f'User: @{bot.get_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id).user.username} was banned from the server.\nReason: {reason}.\nResponsible Administrator: @{message.from_user.username}')
     except AttributeError:
         bot.send_message(message.chat.id, text = f'Please select a message first.')
 
+#NONE_REPLY BAN
 #@bot.message_handler(commands=['ban'])
 #def ban(message:types.Message):
 #    bot.ban_chat_member(message.chat.id, )
@@ -132,6 +147,8 @@ def unban(message:types.Message):
 def mute(message:types.Message):
     try:
         reason = str(message.text[6:])
+        if ('admchathelper_bot') in reason:
+            reason =str(message.text[23:])
         bot.restrict_chat_member(message.chat.id, user_id= message.reply_to_message.from_user.id, can_send_messages = False, can_send_media_messages=False, can_pin_messages=False, can_send_polls= False, can_change_info=False, can_add_web_page_previews=False, can_invite_users=False, can_send_other_messages=False)
         bot.send_message(message.chat.id, text=f'User: @{bot.get_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id).user.username} was muted on the server.\nReason: {reason}.\nResponsible Administrator: @{message.from_user.username}')
     except AttributeError:
