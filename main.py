@@ -6,11 +6,13 @@ from telebot import types
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Updater, Application, MessageHandler, CommandHandler, filters, ContextTypes
+from telegram.error import BadRequest
 
 load_dotenv()
 
 bot = telebot.TeleBot(os.environ['BOT_TOKEN'])
 name = None
+telegram_id = None
 #user_id = os.environ['USER_ID']
 
 
@@ -21,7 +23,7 @@ def start(message:types.Message):
     connection = sqlite3.connect('database.sql')
     cursor = connection.cursor()
 
-    cursor.execute('CREATE TABLE IF NOT EXISTS users (id INT auto_increment primary key, name VARCHAR(50), password VARCHAR(50))')
+    cursor.execute('CREATE TABLE IF NOT EXISTS users (id INT auto_increment primary key, name VARCHAR(50), password VARCHAR(50), telegram_id VARCHAR(50), warns INT(4))')
     connection.commit()
     cursor.close()
     connection.close()
@@ -34,19 +36,24 @@ def start(message:types.Message):
     bot.register_next_step_handler(message, user_name)
     #bot.send_message(message.chat.id, f'Hi, {message.from_user.username}!\nWhat`s our next step?', reply_markup = markup)
 
-def user_name(message):
+def user_name(message:types.Message):
     global name
     name = message.text.strip()
     bot.send_message(message.chat.id, f'Please insert your password:')
     bot.register_next_step_handler(message, user_password)
+    
 
 def user_password(message):
+    global password
     password = hash(message.text.strip())
+    global telegram_id
+    telegram_id = message.from_user.id
+    print(telegram_id)
 
     connection = sqlite3.connect('database.sql')
     cursor = connection.cursor()
 
-    cursor.execute("INSERT INTO users (name, password) VALUES ('%s', '%s')" % (name, password))
+    cursor.execute("INSERT INTO users (name, password, telegram_id) VALUES ('%s', '%s', '%s')" % (name, password, telegram_id))
     connection.commit()
     cursor.close()
     connection.close()
@@ -66,7 +73,7 @@ def callback(callback:types.CallbackQuery):
     userlist = cursor.fetchall()
     info = ''
     for el in userlist:
-        info+= f'Username: {el[1]} Password: {el[2]}\n'
+        info+= f'Username: {el[1]} Password: {el[2]} Telegram ID: {el[3]} Warns: {el[4]}\n'
     cursor.close()
     connection.close()
 
@@ -80,8 +87,6 @@ def callback(callback:types.CallbackQuery):
                     bot.answer_callback_query(callback.id, text = "Processing")
                     bot.send_message(callback.message.chat.id, text = info)
                     
-                
-            
             case 'clearlist':
                   
                 bot.answer_callback_query(callback.id, text = "Processing")  
@@ -90,14 +95,14 @@ def callback(callback:types.CallbackQuery):
                 
                 cursor.execute("UPDATE users SET name = NULL")
                 cursor.execute("UPDATE users SET password = NULL")
-                cursor.execute("DELETE FROM users WHERE name IS NULL AND password IS NULL")
+                cursor.execute("UPDATE users SET telegram_id = NULL")
+                cursor.execute("DELETE FROM users WHERE name IS NULL AND password IS NULL AND telegram_id IS NULL")
                 connection.commit()
                 cursor.close()
                 connection.close()
 
                 bot.send_message(callback.message.chat.id, text='User List was cleared.')
                 
-
             case 'privacy':
                 bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text = 'Privacy Template.', parse_mode='html')
@@ -105,13 +110,16 @@ def callback(callback:types.CallbackQuery):
             case 'help':
                 bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text = '<b>Help Panel.</b>\n\nI can help you to manage chats and groups in <b>Telegram.</b>\n\n<b>Use these commands to control me:</b>\n<b> - /ban</b> to ban member.\n<b> - /mute</b> to restrict user from sending messages and media.\n<b> - /unban</b> delete user from banlist.\n<b> - /unmute</b> delete message restrictions for user.\n<b> - /serverstats</b> show server statistics.\n<b> - /pin</b> pin message.\n<b> - /unpin</b> unpin message.\n<b> - /unpinall</b> unpin all pinned messages.\n<em>///- in Progress</em>',parse_mode='html')
-                
+
             case _:
                 bot.answer_callback_query(callback.id, text = "Processing")
                 bot.send_message(callback.message.chat.id, text="Unexpected Error.")
                 
     except AttributeError:
         bot.send_message(callback.message.chat.id, text = f'Please select a message first.')
+    #except BadRequest as badrequest:
+    #    if badrequest.message in ("request to the Telegram API was unsuccessful"):
+    #        bot.send_message(callback.message.chat.id, text = "List is empty.")
 
 #COMMANDS
 
@@ -159,6 +167,28 @@ def unmute(message:types.Message):
     try:
         bot.restrict_chat_member(message.chat.id, user_id= message.reply_to_message.from_user.id, can_send_messages = True, can_send_media_messages=True, can_send_polls=True,can_send_other_messages=True, can_add_web_page_previews= True, can_change_info=True,can_invite_users=True,can_pin_messages=True)
         bot.send_message(message.chat.id, text=f'User: @{bot.get_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id).user.username} was unmuted by Administrator.\nResponsible Administrator: @{message.from_user.username}')
+    except AttributeError:
+        bot.send_message(message.chat.id, text = f'Please select a message first.')
+
+@bot.message_handler(commands=['warn'])
+def warn(message:types.Message):
+    try:
+        global telegram_id
+        telegram_id = message.reply_to_message.from_user.id
+        warns = 1
+        reason = str(message.text[6:])
+        if ('admchathelper_bot') in reason:
+            reason =str(message.text[23:])
+
+        connection = sqlite3.connect('database.sql')
+        cursor = connection.cursor()
+
+        cursor.execute("UPDATE users SET warns = '%s' WHERE telegram_id = '%s'" % (warns, telegram_id))
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        bot.send_message(message.chat.id, text = f'User: @{bot.get_chat_member(chat_id=message.chat.id, user_id=message.reply_to_message.from_user.id).user.username} was warned by Administrator.\nReason: {reason}.\nWarns amount: {warns}/3.\nResponsible Administrator: @{message.from_user.username}')
     except AttributeError:
         bot.send_message(message.chat.id, text = f'Please select a message first.')
 
